@@ -7,8 +7,8 @@ from services.exceptions import RentalNotFoundError, RentalAlreadyEndedError
 from models.car import CarStatus
 
 
-def make_service(rental_repo=None, car_repo=None):
-    return RentalService(rental_repo or MagicMock(), car_repo or MagicMock())
+def make_service(rental_repo=None, car_repo=None, broker=None):
+    return RentalService(rental_repo or MagicMock(), car_repo or MagicMock(), broker or MagicMock())
 
 
 def test_end_rental_raises_when_already_ended():
