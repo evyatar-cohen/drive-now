@@ -1,5 +1,3 @@
-from typing import Optional
-
 from pydantic import BaseModel, field_validator
 
 from models.car import CarStatus
@@ -22,13 +20,13 @@ class CarCreate(BaseModel):
 
 
 class CarUpdate(BaseModel):
-    model: Optional[str] = None
-    year: Optional[int] = None
-    status: Optional[CarStatus] = None
+    model: str | None = None
+    year: int | None = None
+    status: CarStatus | None = None
 
     @field_validator("model")
     @classmethod
-    def model_not_blank(cls, v: Optional[str]) -> Optional[str]:
+    def model_not_blank(cls, v: str | None) -> str | None:
         if v is not None and not v.strip():
             raise ValueError("model must not be blank")
         return v.strip() if v is not None else v

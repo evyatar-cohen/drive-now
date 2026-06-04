@@ -48,7 +48,7 @@ def test_update_car_only_sends_set_fields():
 
 def test_update_car_raises_when_not_found():
     car_repo = MagicMock()
-    car_repo.update.return_value = None
+    car_repo.get_by_id.return_value = None
     service = make_service(car_repo=car_repo)
 
     with pytest.raises(CarNotFoundError):
