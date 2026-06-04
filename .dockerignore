@@ -1,0 +1,8 @@
+.venv
+__pycache__
+*.db
+logs/
+.env
+tests/
+.pytest_cache
+screenshots
