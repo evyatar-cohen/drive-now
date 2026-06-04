@@ -1,0 +1,18 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./drive_now.db
+      - REDIS_URL=redis://redis:6379
+      - LOG_FILE=logs/drivenow.log
+    volumes:
+      - ./logs:/app/logs # mount to the host machine
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
