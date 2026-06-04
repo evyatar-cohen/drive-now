@@ -4,3 +4,4 @@ sqlalchemy
 redis
 pydantic-settings
 pytest
+prometheus-client
