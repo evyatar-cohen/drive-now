@@ -2,9 +2,10 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from api.routes.cars import router as cars_router
+from api.routes.rentals import router as rentals_router
 from core.db import Base, engine
 from core.exceptions import DatabaseError
-from services.exceptions import CarNotFoundError
+from services.exceptions import CarHasActiveRentalsError, CarNotAvailableError, CarNotFoundError, RentalAlreadyEndedError, RentalNotFoundError
 from core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -14,6 +15,7 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(title="DriveNow")
 
 app.include_router(cars_router)
+app.include_router(rentals_router)
 
 
 
@@ -23,6 +25,22 @@ app.include_router(cars_router)
 @app.exception_handler(CarNotFoundError)
 def car_not_found_handler(request: Request, exc: CarNotFoundError):
     return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+@app.exception_handler(RentalNotFoundError)
+def rental_not_found_handler(request: Request, exc: RentalNotFoundError):
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+@app.exception_handler(CarNotAvailableError)
+def car_not_available_handler(request: Request, exc: CarNotAvailableError):
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+@app.exception_handler(RentalAlreadyEndedError)
+def rental_already_ended_handler(request: Request, exc: RentalAlreadyEndedError):
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+@app.exception_handler(CarHasActiveRentalsError)
+def car_has_active_rentals_handler(request: Request, exc: CarHasActiveRentalsError):
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
 
 # database error
 @app.exception_handler(DatabaseError)
