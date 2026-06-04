@@ -1,5 +1,4 @@
 from datetime import date
-from typing import Optional
 
 from pydantic import BaseModel, field_validator
 
@@ -21,6 +20,6 @@ class RentalResponse(BaseModel):
     car_id: int
     customer_name: str
     start_date: date
-    end_date: Optional[date] = None
+    end_date: date | None = None
 
     model_config = {"from_attributes": True}
