@@ -1,5 +1,6 @@
 from services.exceptions import CarHasActiveRentalsError, CarNotFoundError
 from core.logging import get_logger
+from core.metrics import active_cars
 from models.car import Car, CarStatus
 from repositories.base import CarRepositoryBase, RentalRepositoryBase
 from schemas.car import CarCreate, CarUpdate
@@ -32,6 +33,7 @@ class CarService:
             status=CarStatus.available,
         )
         car = self.repository.add(car)
+        active_cars.inc()
         logger.info("Car added: id=%d model=%s year=%d", car.id, car.model, car.year)
         return car
 
@@ -42,20 +44,36 @@ class CarService:
             raise CarHasActiveRentalsError(car_id)
 
     def update_car(self, car_id: int, data: CarUpdate) -> Car:
+
+        # if trying to change car status to available when it's really in-use on rental operation
         if data.status == CarStatus.available:
             self._assert_no_active_rentals(car_id)
+        previous = self.repository.get_by_id(car_id)
+
+        # get only the given parameters
         fields = data.model_dump(exclude_unset=True)
         car = self.repository.update(car_id, fields)
         if car is None:
             logger.warning("Update failed, car not found: id=%d", car_id)
             raise CarNotFoundError(car_id)
+        
+        # when changing status we add or reduce the metric
+        if previous and "status" in fields:
+            if fields["status"] == CarStatus.available and previous.status != CarStatus.available:
+                active_cars.inc()
+            elif fields["status"] != CarStatus.available and previous.status == CarStatus.available:
+                active_cars.dec()
         logger.info("Car updated: id=%d fields=%s", car_id, list(fields.keys()))
         return car
 
     def delete_car(self, car_id: int) -> None:
         self._assert_no_active_rentals(car_id)
+        car = self.repository.get_by_id(car_id)
         deleted = self.repository.delete(car_id)
         if not deleted:
             logger.warning("Delete failed, car not found: id=%d", car_id)
             raise CarNotFoundError(car_id)
+        # when deleting available car we decrease metric
+        if car and car.status == CarStatus.available:
+            active_cars.dec()
         logger.info("Car deleted: id=%d", car_id)

@@ -1,6 +1,7 @@
 from datetime import date
 
 from core.logging import get_logger
+from core.metrics import active_cars, ongoing_rentals
 from models.car import CarStatus
 from models.rental import Rental
 from repositories.base import CarRepositoryBase, RentalRepositoryBase
@@ -37,12 +38,12 @@ class RentalService:
             logger.warning("Start rental failed, car not available: id=%d status=%s", car.id, car.status)
             raise CarNotAvailableError(data.car_id)
 
-        # add the rental if the car is available
         rental = Rental(car_id=data.car_id, customer_name=data.customer_name)
         rental = self.rental_repository.add(rental)
 
-        # update the car status (same transaction)
         self.car_repository.update(data.car_id, {"status": CarStatus.in_use})
+        ongoing_rentals.inc()
+        active_cars.dec()
         logger.info("Rental started: id=%d car_id=%d customer=%s", rental.id, rental.car_id, rental.customer_name)
         return rental
 
@@ -58,5 +59,7 @@ class RentalService:
         rental = self.rental_repository.end_rental(rental_id, date.today())
 
         self.car_repository.update(rental.car_id, {"status": CarStatus.available})
+        ongoing_rentals.dec()
+        active_cars.inc()
         logger.info("Rental ended: id=%d car_id=%d", rental_id, rental.car_id)
         return rental
