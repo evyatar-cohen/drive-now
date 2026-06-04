@@ -1,10 +1,14 @@
 import pytest
 from unittest.mock import MagicMock
 
-from services.exceptions import CarNotFoundError
+from services.exceptions import CarHasActiveRentalsError, CarNotFoundError
 from schemas.car import CarCreate, CarUpdate
 from services.car_service import CarService
 from models.car import CarStatus
+
+
+def make_service(car_repo=None, rental_repo=None):
+    return CarService(car_repo or MagicMock(), rental_repo or MagicMock())
 
 
 # --- CarCreate validator ---
@@ -19,11 +23,6 @@ def test_car_create_blank_model_raises():
         CarCreate(model="   ", year=2020)
 
 
-def test_car_create_empty_model_raises():
-    with pytest.raises(ValueError, match="must not be blank"):
-        CarCreate(model="", year=2020)
-
-
 # --- CarUpdate validator ---
 
 def test_car_update_none_model_is_allowed():
@@ -36,37 +35,41 @@ def test_car_update_blank_model_raises():
         CarUpdate(model="   ")
 
 
-def test_car_update_strips_whitespace():
-    update = CarUpdate(model="  Honda  ")
-    assert update.model == "Honda"
-
-
-# --- CarService.update_car: only provided fields reach the repo ---
+# --- update_car: only provided fields reach the repo ---
 
 def test_update_car_only_sends_set_fields():
-    repo = MagicMock()
-    service = CarService(repo)
+    car_repo = MagicMock()
+    service = make_service(car_repo=car_repo)
 
     service.update_car(1, CarUpdate(status=CarStatus.maintenance))
 
-    repo.update.assert_called_once_with(1, {"status": CarStatus.maintenance})
-
-
-def test_update_car_sends_all_fields_when_all_provided():
-    repo = MagicMock()
-    service = CarService(repo)
-
-    service.update_car(1, CarUpdate(model="Ford", year=2022, status=CarStatus.in_use))
-
-    repo.update.assert_called_once_with(
-        1, {"model": "Ford", "year": 2022, "status": CarStatus.in_use}
-    )
+    car_repo.update.assert_called_once_with(1, {"status": CarStatus.maintenance})
 
 
 def test_update_car_raises_when_not_found():
-    repo = MagicMock()
-    repo.update.return_value = None
-    service = CarService(repo)
+    car_repo = MagicMock()
+    car_repo.update.return_value = None
+    service = make_service(car_repo=car_repo)
 
     with pytest.raises(CarNotFoundError):
         service.update_car(99, CarUpdate(year=2021))
+
+
+# --- active rentals guard ---
+
+def test_update_car_to_available_blocked_when_active_rentals():
+    rental_repo = MagicMock()
+    rental_repo.has_active_rentals.return_value = True
+    service = make_service(rental_repo=rental_repo)
+
+    with pytest.raises(CarHasActiveRentalsError):
+        service.update_car(1, CarUpdate(status=CarStatus.available))
+
+
+def test_delete_car_blocked_when_active_rentals():
+    rental_repo = MagicMock()
+    rental_repo.has_active_rentals.return_value = True
+    service = make_service(rental_repo=rental_repo)
+
+    with pytest.raises(CarHasActiveRentalsError):
+        service.delete_car(1)

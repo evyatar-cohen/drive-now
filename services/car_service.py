@@ -1,7 +1,7 @@
-from services.exceptions import CarNotFoundError
+from services.exceptions import CarHasActiveRentalsError, CarNotFoundError
 from core.logging import get_logger
 from models.car import Car, CarStatus
-from repositories.base import CarRepositoryBase
+from repositories.base import CarRepositoryBase, RentalRepositoryBase
 from schemas.car import CarCreate, CarUpdate
 
 logger = get_logger(__name__)
@@ -9,8 +9,9 @@ logger = get_logger(__name__)
 
 class CarService:
 
-    def __init__(self, repository: CarRepositoryBase):
+    def __init__(self, repository: CarRepositoryBase, rental_repository: RentalRepositoryBase):
         self.repository = repository
+        self.rental_repository = rental_repository
 
     def get_car(self, car_id: int) -> Car:
         car = self.repository.get_by_id(car_id)
@@ -34,8 +35,15 @@ class CarService:
         logger.info("Car added: id=%d model=%s year=%d", car.id, car.model, car.year)
         return car
 
+    def _assert_no_active_rentals(self, car_id: int) -> None:
+        # helper func to raise exception about active rentals when trying to update car details (or delete)
+        if self.rental_repository.has_active_rentals(car_id):
+            logger.warning("Operation failed, car has active rentals: id=%d", car_id)
+            raise CarHasActiveRentalsError(car_id)
+
     def update_car(self, car_id: int, data: CarUpdate) -> Car:
-        # TODO: from in use to available only if there is no current rentals
+        if data.status == CarStatus.available:
+            self._assert_no_active_rentals(car_id)
         fields = data.model_dump(exclude_unset=True)
         car = self.repository.update(car_id, fields)
         if car is None:
@@ -45,7 +53,7 @@ class CarService:
         return car
 
     def delete_car(self, car_id: int) -> None:
-        # TODO: not delete if there are rentals for the cars
+        self._assert_no_active_rentals(car_id)
         deleted = self.repository.delete(car_id)
         if not deleted:
             logger.warning("Delete failed, car not found: id=%d", car_id)
