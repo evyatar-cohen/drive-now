@@ -30,11 +30,10 @@ class CarSQLRepository(CarRepositoryBase):
     def add(self, car: Car) -> Car:
         try:
             self.db.add(car)
-            self.db.commit()
+            self.db.flush()
             self.db.refresh(car)
             return car
         except SQLAlchemyError as e:
-            self.db.rollback()
             raise DatabaseError("Failed to add car") from e
 
     def update(self, car_id: int, data: dict) -> Car | None:
@@ -44,11 +43,10 @@ class CarSQLRepository(CarRepositoryBase):
                 return None
             for field, value in data.items():
                 setattr(car, field, value)
-            self.db.commit()
+            self.db.flush()
             self.db.refresh(car)
             return car
         except SQLAlchemyError as e:
-            self.db.rollback()
             raise DatabaseError(f"Failed to update car id={car_id}") from e
 
     def delete(self, car_id: int) -> bool:
@@ -57,8 +55,7 @@ class CarSQLRepository(CarRepositoryBase):
             if car is None:
                 return False
             self.db.delete(car)
-            self.db.commit()
+            self.db.flush()
             return True
         except SQLAlchemyError as e:
-            self.db.rollback()
             raise DatabaseError(f"Failed to delete car id={car_id}") from e

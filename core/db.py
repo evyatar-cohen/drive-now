@@ -21,5 +21,12 @@ def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()
     try:
         yield db
+
+        # commit the changes to db only of the whole transaction went without exceptions
+        db.commit()
+    except Exception:
+        # rollback when something went wrong in the middle of a transaction
+        db.rollback()
+        raise
     finally:
         db.close()
