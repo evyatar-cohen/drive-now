@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from core.db import get_db
 from models.car import CarStatus
 from repositories.sql.car_repository import CarSQLRepository
+from repositories.sql.rental_repository import RentalSQLRepository
 from schemas.car import CarCreate, CarResponse, CarUpdate
 from services.car_service import CarService
 
@@ -11,7 +12,7 @@ router = APIRouter(prefix="/cars", tags=["cars"])
 
 
 def get_service(db: Session = Depends(get_db)) -> CarService:
-    return CarService(CarSQLRepository(db))
+    return CarService(CarSQLRepository(db), RentalSQLRepository(db))
 
 
 @router.post("/", response_model=CarResponse, status_code=status.HTTP_201_CREATED)
